@@ -29,16 +29,20 @@ def tridiagonal_solve(a, b, c, f):
     beta = np.zeros_like(c)
 
     # прямой ход
-    alpha[0] = b[0] / c[0]
-    beta[0] = f[0] / c[0]
-    for i in range(1, N-1):
-        alpha[i] = b[i] / (c[i] - a[i - 1] * alpha[i - 1])
-        beta[i] = (a[i - 1] * beta[i - 1] + f[i]) / (c[i] - a[i - 1] * alpha[i - 1])
-    
-    beta[N - 1] = (a[N - 2] * beta[N - 2] + f[N - 1]) / (c[N - 1] - a[N - 2] * alpha[N - 2])
-    
-    # обратный ход
-    x[N - 1] = beta[N - 1]
-    for i in range(N - 2, -1, -1):
-        x[i] = alpha[i] * x[i + 1] + beta[i]
+    try:
+        alpha[0] = b[0] / c[0]
+        beta[0] = f[0] / c[0]
+        for i in range(1, N-1):
+            alpha[i] = b[i] / (c[i] - a[i - 1] * alpha[i - 1])
+            beta[i] = (a[i - 1] * beta[i - 1] + f[i]) / (c[i] - a[i - 1] * alpha[i - 1])
+        
+        beta[N - 1] = (a[N - 2] * beta[N - 2] + f[N - 1]) / (c[N - 1] - a[N - 2] * alpha[N - 2])
+        
+        # обратный ход
+        x[N - 1] = beta[N - 1]
+        for i in range(N - 2, -1, -1):
+            x[i] = alpha[i] * x[i + 1] + beta[i]
+    except IndexError:
+        print("N должна быть больше 1")
+        x = f[0]
     return x
