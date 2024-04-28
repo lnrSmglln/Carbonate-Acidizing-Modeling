@@ -4,8 +4,9 @@
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lnrsmglln/1D_filtration)
 
-## Установка необходимых библиотек
+## Загрузка и подготовка локальной копии
 
-'''bash
-pip install -r requirements.txt
-'''
+```bash
+$ git clone https://github.com/lnrSmglln/1D_filtration.git
+$ pip install -r requirements.txt
+```
