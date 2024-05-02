@@ -62,7 +62,18 @@ def b(S:float, viscosity_1:float, viscosity_2:float) -> float:
     """
     return k1(S) / (k1(S) + viscosity_1 / viscosity_2 * k2(S))
 
-def plot_buckley_leverett(viscosity_1:float, viscosity_2:float):
+def plot_buckley_leverett(viscosity_1:float, viscosity_2:float, return_Sfront = False, return_dfs = False):
+    """Plotting Buckley-Leverett main graphs and get [S]
+
+    Args:
+        viscosity_1 (float): _description_
+        viscosity_2 (float): _description_
+        return_Sfront (bool, optional): _description_. Defaults to False.
+        return_dfs (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        _type_: _description_
+    """
     # Графики Баклея-Леверетта
     ds = 0.01
     s = np.arange(S_WIR, (1-S_ORW) + ds, ds)
@@ -118,3 +129,58 @@ def plot_buckley_leverett(viscosity_1:float, viscosity_2:float):
     plt.show()
 
     return s_right
+   
+    
+
+@numba.extending.overload(np.gradient)
+def np_gradient(f):
+    def np_gradient_impl(f):
+        out = np.empty_like(f, np.float64)
+        out[1:-1] = (f[2:] - f[:-2]) / 2.0
+        out[0] = f[1] - f[0]
+        out[-1] = f[-1] - f[-2]
+        return out
+
+    return np_gradient_impl
+
+def solve_exact(viscosity_1:float, viscosity_2:float, velocity, porosity, t):
+    # Графики Баклея-Леверетта
+    ds = 0.0001
+    s = np.arange(S_WIR, (1-S_ORW) + ds, ds)
+    f_s = np.zeros_like(s)
+    for i in range(len(s)):
+        f_s[i] = b(s[i], viscosity_1, viscosity_2)
+    df_s = np.gradient(f_s) * len(s)
+
+    # построение касательных к функции Б-Л
+    k_right = 0
+    k_left = 0
+    s_right = 0
+    s_left = 0
+    for k in np.arange(max(df_s), min(df_s), -ds):
+        if np.min(k * (s - S_WIR) - f_s) < 0:
+            k_right = k
+            s_right = np.max(s * ((k * (s - S_WIR) - f_s) < 0))
+            break
+    
+    # for k in np.arange(max(df_s), min(df_s), -ds):
+    #     if np.max(k * (s+S_ORW-1) + 1 - f_s) > 0:
+    #         k_left = k
+    #         s_left = np.max(s * ((k * (s+S_ORW-1) + 1 - f_s) > 0))
+    #         break
+
+    u = velocity / porosity * df_s
+
+    D = 0
+    for i in range(len(s)-1, -1, -1):
+        if s[i] <= s_right:
+            if D == 0:
+                D = u[i]
+            u[i] = D
+
+    xx = np.zeros([len(t), len(u)])
+    for n in range(len(t)):
+        for j in range(len(u)):
+            xx[n, j] = u[j] * t[n]
+
+    return xx, s
