@@ -143,9 +143,8 @@ def np_gradient(f):
 
     return np_gradient_impl
 
-def solve_exact(viscosity_1:float, viscosity_2:float, velocity, porosity, t):
+def solve_exact(viscosity_1:float, viscosity_2:float, velocity, porosity, t, ds=0.001):
     # Графики Баклея-Леверетта
-    ds = 0.0001
     s = np.arange(S_WIR, (1-S_ORW) + ds, ds)
     f_s = np.zeros_like(s)
     for i in range(len(s)):
