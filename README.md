@@ -6,7 +6,7 @@
 
 ## Результаты
 
-![advection](./data/periodic_concentration_field.gif)
+<!-- ![advection](./data/periodic_concentration_field.gif) -->
 
 ![acid](./data/acid_field.gif)
 
