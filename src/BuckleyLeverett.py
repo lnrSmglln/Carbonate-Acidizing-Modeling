@@ -128,7 +128,7 @@ def plot_buckley_leverett(viscosity_1:float, viscosity_2:float, return_Sfront = 
 
     plt.show()
 
-    return s_right
+    return s_right, df_s, s
    
     
 
