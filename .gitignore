@@ -1,6 +1,7 @@
 __pycache__
 1D_filtration.code-workspace
 .DS_Store
+.venv
 docs/src/2phase-presentation.aux
 docs/src/2phase-presentation.fdb_latexmk
 docs/src/2phase-presentation.fls

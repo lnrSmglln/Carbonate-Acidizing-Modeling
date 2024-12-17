@@ -41,6 +41,8 @@ def k2(S:float) -> float:
     Returns:
         float: Relative permeability to oil
     """
+    S_WIR = 0.
+    S_ORW = 0.
     if S <= S_WIR:
         return 1.0
     elif S >= (1 - S_ORW):
