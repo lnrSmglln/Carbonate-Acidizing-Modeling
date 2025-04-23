@@ -92,7 +92,7 @@ class ExplicitAcidSolver:
         J = np.zeros(self.num_of_grid_points)
         W = np.zeros(self.num_of_grid_points)
 
-        for n in np.arange(0, num_of_time_steps-1):
+        for n in np.arange(0, num_of_time_steps):
             S[0] = water_saturation_left[n]
             S_[0] = water_saturation_left[n]
             
