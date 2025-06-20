@@ -2,9 +2,9 @@ import numpy as np
 from src.BuckleyLeverett import *
 
 
-class ExplicitAcidSolver:
+class ExplicitRadialAcidSolver:
     def __init__(self,
-                 num_of_grid_points: int, grid_step: float,
+                 grid: np.ndarray[float],
                  initial_porosity_field: np.ndarray[float],
                  initial_saturation_field: np.ndarray[float],
                  k_a, m, S_s, c_eq,
@@ -16,9 +16,11 @@ class ExplicitAcidSolver:
                  
                  alpha_rock, alpha_acid, alpha_salt, alpha_co2, alpha_water):
         
+        self.grid = grid
         # хар-ки
-        self.num_of_grid_points = num_of_grid_points
-        self.grid_step = grid_step
+        self.num_of_grid_points = grid.shape[0]
+        self.num_of_cells_points = self.num_of_grid_points
+        # self.grid_step = grid_step
         self.k_a = k_a
         self.m = m
         self.S_s = S_s
@@ -75,32 +77,17 @@ class ExplicitAcidSolver:
         return self.initial_permeability * porosity / init_poro * np.power(porosity * (1 - init_poro) / (init_poro * (1 - porosity)), self.beta*2)
 
     def get_area_per_volume_by_my_equation(self, porosity: float):
-        init_poro = self.initial_porosity
-        init_area = self.initial_area_per_volume
-        if porosity >= 1.00:
-            return 0
-        else:
-            return init_area * ((1 - porosity) / (1 - init_poro))**(2/3)
+            init_poro = self.initial_porosity
+            init_area = self.initial_area_per_volume
+            if porosity >= 1.00:
+                return 0
+            else:
+                return init_area * ((1 - porosity) / (1 - init_poro))**(2/3)
 
-    def time_step(self):
-        # tau_W = initial_porosity * h / (2 * velocity) * (1 - EPS)
-        # tau_J = 2 * rho1 * M2**m / (k_a * M1 * S_s * rho2**m * (conc_left - c_eq)**m) / 50
-        # tau = min(tau_W, tau_J)
 
-        # if tau_J < tau_W:
-        # 	print("Ограничитель по скорости реакции")
-        # else:
-        # 	print("Ограничитель по скорости переноса")
-        # t = np.arange(0, total_time + tau, tau)
-        # num_of_time_points = t.shape[0]
-        # print(f"{num_of_time_points} временных итераций")
-        pass    
 
-    def passer(self, time: float,
-                water_saturation_left: np.ndarray,
-                acid_conc_left: np.ndarray,
-                fluid_velocity_left: np.ndarray):
-        pass
+
+
 
     def kinetic_speed(self, acid_concentration):
         return self.k_a * np.power(
@@ -123,28 +110,29 @@ class ExplicitAcidSolver:
 
         # массив пористости
         phi = self.porosity_field
-        phi_ = np.zeros(self.num_of_grid_points)
+        phi_ = np.zeros(self.num_of_cells_points)
 
         # массив водонасыщенности
         S = self.water_saturation_field
-        S_ = np.zeros(self.num_of_grid_points)
+        S_ = np.zeros(self.num_of_cells_points)
 
         # массивы концентраций
         conc2 = self.acid_concentration_field
-        conc2_ = np.zeros(self.num_of_grid_points)
+        conc2_ = np.zeros(self.num_of_cells_points)
 
         conc3 = self.salt_concentration_field
-        conc3_ = np.zeros(self.num_of_grid_points)
+        conc3_ = np.zeros(self.num_of_cells_points)
 
         conc5 = self.co2_concentration_field
-        conc5_ = np.zeros(self.num_of_grid_points)
+        conc5_ = np.zeros(self.num_of_cells_points)
 
         # массив скорости потока жидкости и скорости реакции
-        J = np.zeros(self.num_of_grid_points)
-        W = np.zeros(self.num_of_grid_points)
+        J = np.zeros(self.num_of_cells_points)
+
+        W = np.zeros(self.num_of_cells_points)
 
         # массив давления
-        P = np.zeros(self.num_of_grid_points+1)
+        P = np.zeros(self.num_of_grid_points)
 
         for j, n in enumerate(np.arange(0, num_of_time_steps)):
             S[0] = water_saturation_left[n]
@@ -165,7 +153,7 @@ class ExplicitAcidSolver:
 
             phi_[0] = phi[0] + time_step / self.carbonate_density * J[0] * self.alpha_rock
 
-            for i in np.arange(1, self.num_of_grid_points):
+            for i in np.arange(1, self.num_of_cells_points):
                 if conc2[i] > self.c_eq + 1e-6:
                     # J[i] = self.k_a * S[i] * (1 - phi[i]) * self.molar_weight_of_carbonate / 2 * \
                     #     self.S_s * np.power(self.acid_density / self.molar_weight_of_acid * (conc2[i] - self.c_eq), self.m)
@@ -174,29 +162,44 @@ class ExplicitAcidSolver:
                     J[i] = 0
 
                 phi_[i] = phi[i] + time_step / self.carbonate_density * J[i] * self.alpha_rock
-                # assert phi_[i] >= 0 
+                # assert phi_[i] >= 0 , f"phi_[{i}] = {phi_[i]} >= 1, J[{i}] = {J[i]}"
                 # assert phi_[i] <= 1, f"phi_[{i}] = {phi_[i]} >= 1, J[{i}] = {J[i]}"
 
-                W[i] = W[i-1] + self.grid_step * J[i] * (-self.alpha_rock/self.carbonate_density - self.alpha_acid/self.acid_density + \
+                W[i] = 1/self.grid[i] * (
+                        W[i-1] * self.grid[i-1] + 1/2 * (self.grid[i]**2 - self.grid[i-1]**2) * J[i] * (-self.alpha_rock/self.carbonate_density - self.alpha_acid/self.acid_density + \
                                                     self.alpha_salt/self.salt_density + self.alpha_water/self.water_density + self.alpha_co2/self.co2_density)
+                )
 
                 b0 = b(S[i], self.water_viscosity, self.oil_viscosity)
                 b_ = b(S[i-1], self.water_viscosity, self.oil_viscosity)
 
-                S_[i] = (phi[i] * S[i] + time_step * (J[i] * (-self.alpha_acid/self.acid_density + self.alpha_salt/self.salt_density \
-                                                              + self.alpha_water/self.water_density + self.alpha_co2/self.co2_density) - \
-                        (W[i] * b0 - W[i-1] * b_) / self.grid_step)) / phi_[i]
+                S_[i] = 1 / phi_[i] * (
+                    phi[i] * S[i] + time_step * (J[i] * (-self.alpha_acid/self.acid_density + self.alpha_salt/self.salt_density \
+                                                              + self.alpha_water/self.water_density + self.alpha_co2/self.co2_density) + \
+                        2 / (self.grid[i]**2 - self.grid[i-1]**2) * (W[i-1] * b_ * self.grid[i-1] - W[i] * b0 * self.grid[i]))) 
                 
                 if S_[i] >= 1e-9:
-                    conc2_[i] = (phi[i] * S[i] * conc2[i] - time_step * (self.alpha_acid/self.acid_density * J[i] + \
-                                (conc2[i] * W[i] * b0 - conc2[i-1] * W[i-1] * b_) / self.grid_step)) / (phi_[i] * S_[i])
-                    conc3_[i] = (phi[i] * S[i] * conc3[i] + time_step * (self.alpha_salt/self.salt_density * J[i] - \
-                                (conc3[i] * W[i] * b0 - conc3[i-1] * W[i-1] * b_) / self.grid_step)) / (phi_[i] * S_[i])
-                    conc5_[i] = (phi[i] * S[i] * conc5[i] + time_step * (self.alpha_co2/self.co2_density * J[i] - \
-                                (conc5[i] * W[i] * b0 - conc5[i-1] * W[i-1] * b_) / self.grid_step)) / (phi_[i] * S_[i])
+                    conc2_[i] = 1 / (phi_[i] * S_[i]) * \
+                                (phi[i] * S[i] * conc2[i] + time_step * (- self.alpha_acid/self.acid_density * J[i] + \
+                                2 / (self.grid[i]**2 - self.grid[i-1]**2) * \
+                                    (conc2[i-1] * W[i-1] * b_ * self.grid[i-1] - conc2[i] * W[i] * b0 * self.grid[i]))) 
+                    
+                    conc3_[i] = 1 / (phi_[i] * S_[i]) * \
+                                (phi[i] * S[i] * conc3[i] + time_step * (self.alpha_salt/self.salt_density * J[i] + \
+                                2 / (self.grid[i]**2 - self.grid[i-1]**2) * \
+                                    (conc3[i-1] * W[i-1] * b_ * self.grid[i-1] - conc3[i] * W[i] * b0 * self.grid[i])))
+                    
+                    conc5_[i] =  1 / (phi_[i] * S_[i]) * \
+                                (phi[i] * S[i] * conc5[i] + time_step * (self.alpha_co2/self.co2_density * J[i] + \
+                                2 / (self.grid[i]**2 - self.grid[i-1]**2) * \
+                                    (conc5[i-1] * W[i-1] * b_ * self.grid[i-1] - conc5[i] * W[i] * b0 * self.grid[i])))
             
-            for i in np.arange(1, self.num_of_grid_points+1):
-                P[-i-1] = P[-i] + W[-i+1] * self.grid_step / (self.get_permeability(phi[-i]) * (
+            # P[-1] = pressure_right
+            # P[-1] = pressure_right - W[-1] * (self.grid[-1] - self.grid[-2]) / (self.get_permeability(phi[-1]) * (
+            #     k1(S[-1]) / self.water_viscosity + k2(S[-1]) / self.oil_viscosity
+            # ))
+            for i in np.arange(2, self.num_of_grid_points+1):
+                P[-i] = P[-i+1] + W[-i] * (self.grid[-i+1] - self.grid[-i]) / (self.get_permeability(phi[-i]) * (
                     k1(S[-i]) / self.water_viscosity + k2(S[-i]) / self.oil_viscosity
                 ))
 
